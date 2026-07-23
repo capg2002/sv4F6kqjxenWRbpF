@@ -1,0 +1,358 @@
+import pandas as pd
+import numpy as np
+import textwrap
+from sklearn.linear_model import LogisticRegression
+
+from sklearn.model_selection import (
+    RepeatedStratifiedKFold,
+    StratifiedKFold,
+    train_test_split,
+    cross_val_score,
+    cross_validate,
+    GridSearchCV,
+)
+
+import numpy as np
+import pandas as pd
+
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegressionCV
+
+from sklearn.feature_selection import SequentialFeatureSelector
+
+from sklearn.pipeline import Pipeline
+
+# Note 15000 iterations was tested, and the results were identical to 
+# having 5000 iterations.
+seed = 22
+iterations = 2000
+
+deposit_db = pd.read_csv('term-deposit-marketing-2020.csv')
+
+bin_cols = deposit_db.columns[deposit_db.nunique() == 2]
+deposit_db[bin_cols] = deposit_db[bin_cols].replace({'yes': 1, 'no': 0})
+
+factor_cols = deposit_db.select_dtypes(include = ['object', 'category'])
+factor_cols = factor_cols.columns[factor_cols.nunique() > 2]
+
+deposit_db = pd.get_dummies(
+    deposit_db,
+    columns=factor_cols,
+    drop_first = True,
+    dtype=int)
+
+Y_var = deposit_db["y"]
+X_full = deposit_db.drop("y", axis=1)
+
+cv = StratifiedKFold(n_splits=5,
+    shuffle=True,
+    random_state=seed
+    )
+    
+X_train_f, X_test_f, Y_train, Y_test = train_test_split(X_full, 
+            Y_var, test_size=0.2, random_state=seed)
+
+C_values = np.logspace(-6, 0, 30)
+
+results = []
+
+# Stores the features selected for the previous C value
+previous_selected_features = set()
+
+for position, C in enumerate(C_values):
+    model = Pipeline([
+        ("scaler", StandardScaler()),
+        (
+            "logistic",
+            LogisticRegression(
+                penalty="l1",
+                solver="liblinear",
+                C=C,
+                class_weight="balanced",
+                max_iter=5000
+            )
+        )
+    ])
+
+    scores = cross_validate(
+        model,
+        X_train_f,
+        Y_train,
+        cv=cv,
+        scoring=["neg_log_loss", "balanced_accuracy"],
+        n_jobs=-1
+    )
+
+    model.fit(X_train_f, Y_train)
+
+    coefficients = model.named_steps["logistic"].coef_[0]
+
+    selected_mask = np.abs(coefficients) > 1e-8
+
+    selected_features = X_train_f.columns[
+        selected_mask
+    ].tolist()
+
+    current_selected_features = set(selected_features)
+
+    # Compare the current C model with the previous C model
+    if position == 0:
+        added_features = current_selected_features
+        removed_features = set()
+    else:
+        added_features = (
+            current_selected_features
+            - previous_selected_features
+        )
+
+        removed_features = (
+            previous_selected_features
+            - current_selected_features
+        )
+
+    results.append({
+        "C": C,
+        "features_selected": len(selected_features),
+
+        "selected_feature_names": ", ".join(
+            sorted(current_selected_features)
+        ),
+
+        "features_added_from_previous_C": ", ".join(
+            sorted(added_features)
+        ),
+
+        "features_removed_from_previous_C": ", ".join(
+            sorted(removed_features)
+        ),
+
+        "mean_neg_log_loss": scores["test_neg_log_loss"].mean(),
+        "sd_neg_log_loss": scores["test_neg_log_loss"].std(),
+        "mean_balanced_accuracy": scores["test_balanced_accuracy"].mean(),
+        "sd_balanced_accuracy": scores["test_balanced_accuracy"].std()
+    })
+
+    # Save the current set for the next iteration
+    previous_selected_features = current_selected_features.copy()
+
+
+selection_results = pd.DataFrame(results)
+
+selection_results = selection_results.sort_values(
+    ["features_selected", "C"],
+    ascending=[True, False]
+)
+
+# Convert negative log loss into ordinary positive log loss
+selection_results["log_loss"] = (
+    -selection_results["mean_neg_log_loss"]
+)
+
+# Improvement relative to the previous, smaller C
+selection_results["improvement_from_previous"] = (
+    selection_results["log_loss"].shift(1)
+    - selection_results["log_loss"]
+)
+
+# Count added and removed features
+selection_results["features_added_count"] = (
+    selection_results["features_added_from_previous_C"]
+    .apply(
+        lambda x: 0
+        if not x
+        else len(x.split(", "))
+    )
+)
+
+selection_results["features_removed_count"] = (
+    selection_results["features_removed_from_previous_C"]
+    .apply(
+        lambda x: 0
+        if not x
+        else len(x.split(", "))
+    )
+)
+
+# Compact table for comparing models
+compact_table = selection_results[
+    [
+        "C",
+        "features_selected",
+        "log_loss",
+        "mean_balanced_accuracy",
+        "improvement_from_previous",
+        "features_added_count",
+        "features_removed_count"
+    ]
+].copy()
+
+compact_table.columns = [
+    "C",
+    "Features",
+    "Log loss",
+    "Balanced accuracy",
+    "Improvement",
+    "Added",
+    "Removed"
+]
+
+print("\nMODEL COMPARISON")
+print("-" * 82)
+
+print(
+    compact_table.to_string(
+        index=False,
+        formatters={
+            "C": lambda x: f"{x:.6f}",
+            "Log loss": lambda x: f"{x:.6f}",
+            "Improvement": lambda x: (
+                "—" if pd.isna(x) else f"{x:+.6f}"
+            )
+        }
+    )
+)
+
+print("\n\nFEATURE SELECTION DETAILS")
+print("=" * 82)
+
+for _, row in selection_results.iterrows():
+
+    selected = (
+        row["selected_feature_names"]
+        if row["selected_feature_names"]
+        else "None"
+    )
+
+    added = (
+        row["features_added_from_previous_C"]
+        if row["features_added_from_previous_C"]
+        else "None"
+    )
+
+    removed = (
+        row["features_removed_from_previous_C"]
+        if row["features_removed_from_previous_C"]
+        else "None"
+    )
+
+    print(f"\nC = {row['C']:.6f}")
+    print(f"Features selected: {row['features_selected']}")
+    print(f"Log loss: {-row['mean_neg_log_loss']:.6f}")
+
+    print("\nAdded since previous C:")
+    print(
+        textwrap.fill(
+            added,
+            width=78,
+            initial_indent="  ",
+            subsequent_indent="  "
+        )
+    )
+
+    print("\nRemoved since previous C:")
+    print(
+        textwrap.fill(
+            removed,
+            width=78,
+            initial_indent="  ",
+            subsequent_indent="  "
+        )
+    )
+
+    print("\nAll selected features:")
+    print(
+        textwrap.fill(
+            selected,
+            width=78,
+            initial_indent="  ",
+            subsequent_indent="  "
+        )
+    )
+
+    print("-" * 82)
+
+chosen_C = 0.007197
+
+chosen_model = Pipeline([
+    ("scaler", StandardScaler()),
+    ("logistic", LogisticRegression(
+        penalty="l1",
+        solver="liblinear",
+        C=chosen_C,
+        class_weight="balanced",
+        max_iter=5000
+    ))
+])
+
+chosen_scores = cross_validate(
+    chosen_model,
+    X_train_f,
+    Y_train,
+    cv=cv,
+    scoring=[
+        "balanced_accuracy",
+        "accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "roc_auc",
+        "neg_log_loss"
+    ]
+)
+
+for name, values in chosen_scores.items():
+    print(name, ":", values.mean())
+
+chosen_model.fit(X_train_f, Y_train)
+
+coefficients = chosen_model.named_steps["logistic"].coef_[0]
+
+selected_features = X_train_f.columns[
+    np.abs(coefficients) > 1e-8
+]
+
+print("Selected features:")
+print(selected_features.tolist())
+
+
+chosen_model = Pipeline([
+    ("scaler", StandardScaler()),
+    ("logistic", LogisticRegression(
+        penalty="l1",
+        solver="liblinear",
+        C=chosen_C,
+        class_weight="balanced",
+        max_iter=5000
+    ))
+])
+
+chosen_scores = cross_validate(
+    chosen_model,
+    X_train_f,
+    Y_train,
+    cv=cv,
+    scoring=[
+        "balanced_accuracy",
+        "accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "roc_auc",
+        "neg_log_loss"
+    ]
+)
+
+for name, values in chosen_scores.items():
+    print(name, ":", values.mean())
+
+chosen_model.fit(X_train_f, Y_train)
+
+coefficients = chosen_model.named_steps["logistic"].coef_[0]
+
+selected_features = X_train_f.columns[
+    np.abs(coefficients) > 1e-8
+]
+
+print("Selected features:")
+print(selected_features.tolist())
