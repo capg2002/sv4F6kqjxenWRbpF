@@ -1,33 +1,24 @@
+# Illustrating which features are most impactful using L1 loss.
+
 import pandas as pd
 import numpy as np
 import textwrap
-from sklearn.linear_model import LogisticRegression
 
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import (
-    RepeatedStratifiedKFold,
     StratifiedKFold,
     train_test_split,
-    cross_val_score,
     cross_validate,
-    GridSearchCV,
 )
-
-import numpy as np
-import pandas as pd
-
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegressionCV
-
-from sklearn.feature_selection import SequentialFeatureSelector
-
-from sklearn.pipeline import Pipeline
 
 # Note 15000 iterations was tested, and the results were identical to 
 # having 5000 iterations.
 seed = 22
 iterations = 2000
 
+# Set up for dataframe
 deposit_db = pd.read_csv('term-deposit-marketing-2020.csv')
 
 bin_cols = deposit_db.columns[deposit_db.nunique() == 2]
@@ -42,6 +33,7 @@ deposit_db = pd.get_dummies(
     drop_first = True,
     dtype=int)
 
+# Set up for fitting
 Y_var = deposit_db["y"]
 X_full = deposit_db.drop("y", axis=1)
 
@@ -53,14 +45,17 @@ cv = StratifiedKFold(n_splits=5,
 X_train_f, X_test_f, Y_train, Y_test = train_test_split(X_full, 
             Y_var, test_size=0.2, random_state=seed)
 
+# Eligible C values for L1 loss model selection.
 C_values = np.logspace(-6, 0, 30)
 
 results = []
 
-# Stores the features selected for the previous C value
+# Stores the features selected for the previous C value.
 previous_selected_features = set()
 
 for position, C in enumerate(C_values):
+
+    # Scale and fit logistic regression
     model = Pipeline([
         ("scaler", StandardScaler()),
         (
@@ -75,6 +70,7 @@ for position, C in enumerate(C_values):
         )
     ])
 
+    # Cross validate model
     scores = cross_validate(
         model,
         X_train_f,
@@ -83,11 +79,12 @@ for position, C in enumerate(C_values):
         scoring=["neg_log_loss", "balanced_accuracy"],
         n_jobs=-1
     )
-
     model.fit(X_train_f, Y_train)
 
+    # Confirm coefficients
     coefficients = model.named_steps["logistic"].coef_[0]
 
+    # Remove coefficients shrunk close to 0 by L1 fitting.
     selected_mask = np.abs(coefficients) > 1e-8
 
     selected_features = X_train_f.columns[
@@ -96,7 +93,9 @@ for position, C in enumerate(C_values):
 
     current_selected_features = set(selected_features)
 
-    # Compare the current C model with the previous C model
+    # Compare the current C model with the previous C model. This
+    # is in order to tell which features were added and removed in each step.
+
     if position == 0:
         added_features = current_selected_features
         removed_features = set()
@@ -133,29 +132,29 @@ for position, C in enumerate(C_values):
         "sd_balanced_accuracy": scores["test_balanced_accuracy"].std()
     })
 
-    # Save the current set for the next iteration
+    # Save the current set for the next iteration.
     previous_selected_features = current_selected_features.copy()
 
 
 selection_results = pd.DataFrame(results)
 
 selection_results = selection_results.sort_values(
-    ["features_selected", "C"],
+    ["features_selected", "mean_balanced_accuracy"],
     ascending=[True, False]
 )
 
-# Convert negative log loss into ordinary positive log loss
+# Convert negative log loss into ordinary positive log loss.
 selection_results["log_loss"] = (
     -selection_results["mean_neg_log_loss"]
 )
 
-# Improvement relative to the previous, smaller C
+# Improvement relative to the previous, smaller C.
 selection_results["improvement_from_previous"] = (
     selection_results["log_loss"].shift(1)
     - selection_results["log_loss"]
 )
 
-# Count added and removed features
+# Count added and removed features.
 selection_results["features_added_count"] = (
     selection_results["features_added_from_previous_C"]
     .apply(
@@ -197,6 +196,8 @@ compact_table.columns = [
     "Removed"
 ]
 
+
+# All code below is my attempt to make a more legible table for comparisons.
 print("\nMODEL COMPARISON")
 print("-" * 82)
 
@@ -272,7 +273,10 @@ for _, row in selection_results.iterrows():
 
     print("-" * 82)
 
-chosen_C = 0.007197
+# Chosen C which sacrifices variables while still yielding a high
+# balanced accuracy. 
+
+chosen_C = 0.00329
 
 chosen_model = Pipeline([
     ("scaler", StandardScaler()),
@@ -285,6 +289,7 @@ chosen_model = Pipeline([
     ))
 ])
 
+# Diagnostics cross validated
 chosen_scores = cross_validate(
     chosen_model,
     X_train_f,
@@ -301,6 +306,7 @@ chosen_scores = cross_validate(
     ]
 )
 
+# Print mean diagnostics
 for name, values in chosen_scores.items():
     print(name, ":", values.mean())
 
@@ -308,6 +314,7 @@ chosen_model.fit(X_train_f, Y_train)
 
 coefficients = chosen_model.named_steps["logistic"].coef_[0]
 
+# Remove significantly small coefficients.
 selected_features = X_train_f.columns[
     np.abs(coefficients) > 1e-8
 ]
@@ -315,44 +322,36 @@ selected_features = X_train_f.columns[
 print("Selected features:")
 print(selected_features.tolist())
 
+# Variables were introduced in the following order:
 
-chosen_model = Pipeline([
-    ("scaler", StandardScaler()),
-    ("logistic", LogisticRegression(
-        penalty="l1",
-        solver="liblinear",
-        C=chosen_C,
-        class_weight="balanced",
-        max_iter=5000
-    ))
-])
+# duration,
 
-chosen_scores = cross_validate(
-    chosen_model,
-    X_train_f,
-    Y_train,
-    cv=cv,
-    scoring=[
-        "balanced_accuracy",
-        "accuracy",
-        "precision",
-        "recall",
-        "f1",
-        "roc_auc",
-        "neg_log_loss"
-    ]
-)
+# month,
 
-for name, values in chosen_scores.items():
-    print(name, ":", values.mean())
+# contact,
 
-chosen_model.fit(X_train_f, Y_train)
+# housing,
 
-coefficients = chosen_model.named_steps["logistic"].coef_[0]
+# job, marital,
 
-selected_features = X_train_f.columns[
-    np.abs(coefficients) > 1e-8
-]
+# education, loan,
 
-print("Selected features:")
-print(selected_features.tolist())
+# balance, campaign, day,
+
+# default,
+
+# age
+
+# Duration contains the strongest initial predictive signal.
+# Month and contact method provide the next-largest useful additions.
+# Housing, job, and marital status add further moderate information.
+# Variables entering later provide progressively smaller incremental improvements.
+
+# For the selected reduced model, it has 21 features instead of 36.
+# It includes the following variables:
+# Balance, Housing, Loan, Day, Duration, Campaign, "has blue collar", "has retired",
+# "has services", "has student", "is married", "has tertiary edu", "does not have unknown contact",
+# "August", "Feb", "Jan", "Jul", "Mar", "May", "Nov", "Oct"
+
+# The model has 85.58% accuracy compared to the 86.46% seen in the initial reg model,
+# which is marginal considering 15 variables are dropped.

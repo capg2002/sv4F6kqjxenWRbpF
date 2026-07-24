@@ -1,3 +1,6 @@
+### Exploratory data analysis, ensuring a lack of missing values and 
+# necessary manipulation for initial logistic regression. 
+
 import pandas as pd
 
 # Loading file
@@ -20,17 +23,18 @@ for var in feature_cols:
 # Also notable:
 # All numeric values are integers.
 # All categories are distinctly defined, and do not need to be 
-# aggregated.
+# aggregated. Categorical variables must be transformed into factors variables.
 
 print(deposit_db.nunique())
 print(deposit_db.isna().value_counts())
 
 # All binary variables are genuinely binary, with no reporting
-# variation.
+# variation. Binary variables must be transformed into 0-1 integer values.
+# Engineering is easy since they all have yes and no as their string rep.
 
 # There are no missing values in categorical reporting or
 # in the form of NAs.
 
 # The biggest determining factor is that the response variable is
-# imbalanced, which must be accounted for by looking at balanced
+# imbalanced (205:16 split), which must be accounted for by looking at balanced
 # accuracy instead of raw accuracy. 
