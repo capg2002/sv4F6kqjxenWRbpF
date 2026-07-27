@@ -1,8 +1,19 @@
 # Illustrating which features are most impactful using L1 loss.
 
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    log_loss
+)
+
 import pandas as pd
 import numpy as np
 import textwrap
+import warnings
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import (
@@ -12,6 +23,8 @@ from sklearn.model_selection import (
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+
+warnings.filterwarnings("ignore")
 
 # Note 15000 iterations was tested, and the results were identical to 
 # having 5000 iterations.
@@ -322,6 +335,20 @@ selected_features = X_train_f.columns[
 print("Selected features:")
 print(selected_features.tolist())
 
+
+Y_pred_f = chosen_model.predict(X_test_f)
+Y_prbs_f = chosen_model.predict_proba(X_test_f)[:,1]
+
+print("FINAL TEST RESULTS")
+print("Accuracy:", accuracy_score(Y_test, Y_pred_f))
+print("Balanced accuracy:", balanced_accuracy_score(Y_test, Y_pred_f))
+print("Precision:", precision_score(Y_test, Y_pred_f))
+print("Recall:", recall_score(Y_test, Y_pred_f))
+print("F1:", f1_score(Y_test, Y_pred_f))
+print("ROC AUC:", roc_auc_score(Y_test, Y_prbs_f))
+print("Log loss:", log_loss(Y_test, Y_prbs_f))
+
+
 # Variables were introduced in the following order:
 
 # duration,
@@ -353,5 +380,5 @@ print(selected_features.tolist())
 # "has services", "has student", "is married", "has tertiary edu", "does not have unknown contact",
 # "August", "Feb", "Jan", "Jul", "Mar", "May", "Nov", "Oct"
 
-# The model has 85.58% accuracy compared to the 86.46% seen in the initial reg model,
+# The model has 83.94% balanced accuracy compared to the 84.31% seen in the initial reg model,
 # which is marginal considering 15 variables are dropped.

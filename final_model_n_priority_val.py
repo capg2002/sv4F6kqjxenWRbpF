@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 warnings.filterwarnings('ignore')
 # Note 15000 iterations was tested, and the results were identical to 
 # having 5000 iterations.
-seed = 22
+seed = 23
 iterations = 2000
 
 # Loading data
@@ -48,48 +48,6 @@ X_train_f, X_test_f, Y_train, Y_test = train_test_split(X_full,
 
 # Same process as in feature_selection.py
 chosen_C = 0.00329
-
-chosen_model = Pipeline([
-    ("scaler", StandardScaler()),
-    ("logistic", LogisticRegression(
-        penalty="l1",
-        solver="liblinear",
-        C=chosen_C,
-        class_weight=None,
-        max_iter=5000
-    ))
-])
-
-chosen_scores = cross_validate(
-    chosen_model,
-    X_train_f,
-    Y_train,
-    cv=cv,
-    scoring=[
-        "balanced_accuracy",
-        "accuracy",
-        "precision",
-        "recall",
-        "f1",
-        "roc_auc",
-        "neg_log_loss"
-    ]
-)
-
-for name, values in chosen_scores.items():
-    print(name, ":", values.mean())
-
-chosen_model.fit(X_train_f, Y_train)
-
-coefficients = chosen_model.named_steps["logistic"].coef_[0]
-
-selected_features = X_train_f.columns[
-    np.abs(coefficients) > 1e-8
-]
-
-print("Selected features:")
-print(selected_features.tolist())
-
 
 chosen_model = Pipeline([
     ("scaler", StandardScaler()),
@@ -132,8 +90,8 @@ selected_features = X_train_f.columns[
 print("Selected features:")
 print(selected_features.tolist())
 
-# The final chosen model has 85.58% balanaced accuracy, and is chosen for its feature
-# simplicity compared to the full model. Its recall is 84.04%, which is significantly
+# The final chosen model has 82.67% balanaced accuracy, and is chosen for its feature
+# simplicity compared to the full model. Its recall is 81.76%, which is significantly
 # better than the original unbalanced model. 
 
 # All columns passed into chosen_model.fit()
@@ -295,4 +253,11 @@ print(
 )
 
 # Note the model accepts the single tertiary student in Feb and rejects 
-# the blue collar customer, as expected. 
+# the blue collar customer, as expected. Yet, the model accepts the single tertiary 
+# student at a much lower probability than expected. Evidently, 
+# duration is the main variable impacting the model's prediction. With this being the case, 
+# the model requires knowledge of data collected after reaching out
+# to make its predictions as accurate as they are.
+
+# Thus, this motivates the creation of an alternative model 
+# that does not include duration. 

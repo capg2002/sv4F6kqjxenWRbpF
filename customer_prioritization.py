@@ -74,7 +74,7 @@ for col in cols:
 # Students and retired folks have a much higher purchase rate compared to other
 # jobs. Students are 2 times more likely to commit than otherwise, while retired
 # folks have 1.45x higher likelihood.
-# Notably, there were 8166 customers in management, and their retention is slightly above 
+# Notably, there were 8166 customers in management, and their purchase rate is slightly above 
 # average. This is a highly populated position that still retains a good number of purchases.
 # Conversely, blue-collar workers are 22% less likely to commit than the average position,
 # even though they have the highest population in the dataset. Less emphasis
@@ -187,5 +187,3 @@ for col_1 in cols:
 # aside from those in management reached out to in April.
 
 # Further analysis can be conducted regarding interaction terms.
-
-
