@@ -9,7 +9,6 @@ from sklearn.model_selection import (
     train_test_split,
     cross_validate,
 )
-
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -19,7 +18,6 @@ from sklearn.metrics import (
     roc_auc_score,
     log_loss
 )
-
 from sklearn.feature_selection import RFECV
 
 warnings.filterwarnings('ignore')
@@ -33,12 +31,11 @@ iterations = 2000
 deposit_db = pd.read_csv('term-deposit-marketing-2020.csv')
 
 # Transforming binary columns into numeric.
-bin_cols = deposit_db.columns[deposit_db.nunique() == 2]
-deposit_db[bin_cols] = deposit_db[bin_cols].replace({'yes': 1, 'no': 0})
+deposit_db["y"] = deposit_db["y"].replace({'yes': 1, 'no': 0})
 
 # Transforming cat columns into factors.
 factor_cols = deposit_db.select_dtypes(include = ['object', 'category'])
-factor_cols = factor_cols.columns[factor_cols.nunique() > 2]
+factor_cols = factor_cols.columns
 
 print(factor_cols)
 deposit_db = pd.get_dummies(
@@ -93,11 +90,11 @@ scores_full_names = list(scores_full.keys())
 for name in scores_full_names:
     print("Full", name, ":", scores_full[name].mean())
 
-# Accuracy is high, at 93.36%, but the balanced accuracy is 61.59%.
+# Accuracy is high, at ~93%, but the balanced accuracy is ~62%.
 # Note that 92.76% of the dataset is negatives, so this likely predicts
 # the majority of the negatives correctly, but also predicts false negatives often. 
 
-# This is corroborated by the recall at 24.52%, (TP/(TP + FN)) showing how a 
+# This is corroborated by the recall at ~25%, (TP/(TP + FN)) showing how a 
 # the model misses actual positive cases, resulting in a high number of false negatives.
 
 # This suggests that the model over-relies on predicting negatives.
@@ -184,7 +181,7 @@ print("Log loss:", log_loss(Y_test, Y_prbs_f))
 # Notably, this full balanced model is considerably more consistent, improving
 # balanced accuracy and recall significantly. 
 
-# Balanced accuracy is 84.31% and recall is 82.66%, which is very strong.
+# Balanced accuracy is ~84% and recall is ~82%, which is very strong.
 # Notably, accuracy and precision have decreasing. It makes sense that 
 # precision decreases, as it shows that, when the model says "yes", it 
 # is wrong most of the time, as there are 37104 "no(s)" reported.
@@ -237,9 +234,9 @@ print("Number of original features:", X_full.shape[1])
 print("Number of selected features:", X_reduced.shape[1])
 
 # It is noted that the full balanced model already has high balanced accuracy
-# at 84.32% with high recall 83.01%, which displays a preferred model over
+# at ~84% with high recall ~83%, which displays a preferred model over
 # the reduced unbalanced model, which had 63.45% balanced accuracy with
-# extremely low recall at 28.31%, showing how the unbalanced model is
+# extremely low recall at ~28%, showing how the unbalanced model is
 # too conservative at claiming purchases.
 
 # RFECV was used for both, with the balanced model not being reduced at all.

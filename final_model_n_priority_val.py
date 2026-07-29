@@ -21,13 +21,14 @@ iterations = 2000
 # Loading data
 deposit_db = pd.read_csv('term-deposit-marketing-2020.csv')
 
-# Transforming data for fitting, as explained in initial_logistic_regression.py
-bin_cols = deposit_db.columns[deposit_db.nunique() == 2]
-deposit_db[bin_cols] = deposit_db[bin_cols].replace({'yes': 1, 'no': 0})
+# Transforming binary columns into numeric.
+deposit_db["y"] = deposit_db["y"].replace({'yes': 1, 'no': 0})
 
+# Transforming cat columns into factors.
 factor_cols = deposit_db.select_dtypes(include = ['object', 'category'])
-factor_cols = factor_cols.columns[factor_cols.nunique() > 2]
+factor_cols = factor_cols.columns
 
+print(factor_cols)
 deposit_db = pd.get_dummies(
     deposit_db,
     columns=factor_cols,
@@ -90,8 +91,8 @@ selected_features = X_train_f.columns[
 print("Selected features:")
 print(selected_features.tolist())
 
-# The final chosen model has 82.67% balanaced accuracy, and is chosen for its feature
-# simplicity compared to the full model. Its recall is 81.76%, which is significantly
+# The final chosen model has ~82% balanaced accuracy, and is chosen for its feature
+# simplicity compared to the full model. Its recall is ~82%, which is significantly
 # better than the original unbalanced model. 
 
 # All columns passed into chosen_model.fit()

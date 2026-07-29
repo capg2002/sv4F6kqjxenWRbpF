@@ -1,4 +1,8 @@
-# Illustrating which features are most impactful using L1 loss.
+### Illustrating which features are most impactful using L1 loss.
+import pandas as pd
+import numpy as np
+import textwrap
+import warnings
 
 from sklearn.metrics import (
     accuracy_score,
@@ -9,12 +13,6 @@ from sklearn.metrics import (
     roc_auc_score,
     log_loss
 )
-
-import pandas as pd
-import numpy as np
-import textwrap
-import warnings
-
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import (
     StratifiedKFold,
@@ -34,12 +32,14 @@ iterations = 2000
 # Set up for dataframe
 deposit_db = pd.read_csv('term-deposit-marketing-2020.csv')
 
-bin_cols = deposit_db.columns[deposit_db.nunique() == 2]
-deposit_db[bin_cols] = deposit_db[bin_cols].replace({'yes': 1, 'no': 0})
+# Transforming binary columns into numeric.
+deposit_db["y"] = deposit_db["y"].replace({'yes': 1, 'no': 0})
 
+# Transforming cat columns into factors.
 factor_cols = deposit_db.select_dtypes(include = ['object', 'category'])
-factor_cols = factor_cols.columns[factor_cols.nunique() > 2]
+factor_cols = factor_cols.columns
 
+print(factor_cols)
 deposit_db = pd.get_dummies(
     deposit_db,
     columns=factor_cols,
@@ -380,5 +380,5 @@ print("Log loss:", log_loss(Y_test, Y_prbs_f))
 # "has services", "has student", "is married", "has tertiary edu", "does not have unknown contact",
 # "August", "Feb", "Jan", "Jul", "Mar", "May", "Nov", "Oct"
 
-# The model has 83.94% balanced accuracy compared to the 84.31% seen in the initial reg model,
+# The model has ~84% balanced accuracy compared to the ~84.5% seen in the initial reg model,
 # which is marginal considering 15 variables are dropped.

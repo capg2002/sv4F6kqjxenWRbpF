@@ -14,11 +14,8 @@ from sklearn.model_selection import (
     StratifiedKFold,
     train_test_split,
     cross_validate,
-)
-from sklearn.model_selection import (
-    FixedThresholdClassifier,
-    TunedThresholdClassifierCV,
-    cross_validate
+    GridSearchCV,
+    FixedThresholdClassifier
 )
 from sklearn.metrics import (
     accuracy_score,
@@ -29,9 +26,6 @@ from sklearn.metrics import (
     roc_auc_score,
     log_loss
 )
-
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import (HistGradientBoostingClassifier,
                               RandomForestClassifier)
 
@@ -44,13 +38,14 @@ iterations = 2000
 # Loading data
 deposit_db = pd.read_csv('term-deposit-marketing-2020.csv')
 
-# Transforming data for fitting, as explained in initial_logistic_regression.py
-bin_cols = deposit_db.columns[deposit_db.nunique() == 2]
-deposit_db[bin_cols] = deposit_db[bin_cols].replace({'yes': 1, 'no': 0})
+# Transforming binary columns into numeric.
+deposit_db["y"] = deposit_db["y"].replace({'yes': 1, 'no': 0})
 
+# Transforming cat columns into factors.
 factor_cols = deposit_db.select_dtypes(include = ['object', 'category'])
-factor_cols = factor_cols.columns[factor_cols.nunique() > 2]
+factor_cols = factor_cols.columns
 
+print(factor_cols)
 deposit_db = pd.get_dummies(
     deposit_db,
     columns=factor_cols,
@@ -87,7 +82,7 @@ scores_full_names = list(scores_full.keys())
 for name in scores_full_names:
     print("Full", name, ":", scores_full[name].mean())
 
-# As expected, an accuracy of 92.80% and a balanced accuracy of 51.59%, this
+# As expected, an accuracy of ~93% and a balanced accuracy of ~52%, this
 # model greatly underperforms. 
 
 
@@ -120,7 +115,7 @@ print("ROC AUC:", roc_auc_score(Y_test, Y_prbs_f))
 print("Log loss:", log_loss(Y_test, Y_prbs_f))
 
 # Compared to the original model, this model underperforms significantly,
-# only having a balanced accuracy of 61.13%. More models should be tested.
+# only having a balanced accuracy of ~61%. More models should be tested.
 
 
 # Attempting Histogram Gradient Boosting; a nonlinear optimization
@@ -181,6 +176,113 @@ chosen_model.fit(X_train_f, Y_train)
 Y_pred_f = chosen_model.predict(X_test_f)
 Y_prbs_f = chosen_model.predict_proba(X_test_f)[:,1]
 
+boosting_model = HistGradientBoostingClassifier(
+    class_weight=None,
+    random_state=seed
+)
+
+threshold_boosting_model = FixedThresholdClassifier(
+    estimator=boosting_model,
+    threshold=threshold,
+    response_method="predict_proba"
+)
+
+# Parameters belonging to the model inside FixedThresholdClassifier
+# require the "estimator__" prefix.
+parameter_grid = {
+    "estimator__learning_rate": [
+        0.05,
+        0.10
+    ],
+    "estimator__max_iter": [
+        200,
+        300
+    ],
+    "estimator__max_leaf_nodes": [
+        7,
+        15,
+        31
+    ],
+    "estimator__min_samples_leaf": [
+        50,
+        100
+    ],
+    "estimator__l2_regularization": [
+        0,
+        0.1,
+        1
+    ]
+}
+
+scoring_metrics = [
+    "balanced_accuracy",
+    "accuracy",
+    "precision",
+    "recall",
+    "f1",
+    "roc_auc",
+    "average_precision",
+    "neg_log_loss"
+]
+
+grid_search = GridSearchCV(
+    estimator=threshold_boosting_model,
+    param_grid=parameter_grid,
+    scoring=scoring_metrics,
+
+    # Select the model with the highest mean CV balanced accuracy.
+    refit="balanced_accuracy",
+
+    cv=cv,
+    n_jobs=1,
+    verbose=2,
+    return_train_score=False,
+    error_score="raise"
+)
+
+# Search using only the training data.
+grid_search.fit(X_train_f, Y_train)
+
+print("\nBEST PARAMETERS")
+print(grid_search.best_params_)
+
+print(
+    "\nBest cross-validation balanced accuracy:",
+    grid_search.best_score_
+)
+
+# 
+
+# Print all CV scores for the chosen parameter combination.
+best_index = grid_search.best_index_
+
+print("\nCROSS-VALIDATION SCORES FOR SELECTED MODEL")
+
+for metric in scoring_metrics:
+    mean_score = grid_search.cv_results_[
+        f"mean_test_{metric}"
+    ][best_index]
+
+    standard_deviation = grid_search.cv_results_[
+        f"std_test_{metric}"
+    ][best_index]
+
+    print(
+        metric,
+        ":",
+        mean_score,
+        "+/-",
+        standard_deviation
+    )
+
+# GridSearchCV has already fitted this model on all training data
+# because refit="balanced_accuracy".
+chosen_model = grid_search.best_estimator_
+
+# Evaluate only once on the untouched test set.
+Y_pred_f = chosen_model.predict(X_test_f)
+Y_prbs_f = chosen_model.predict_proba(X_test_f)[:, 1]
+
 
 print("FINAL TEST RESULTS")
 print("Accuracy:", accuracy_score(Y_test, Y_pred_f))
@@ -192,8 +294,8 @@ print("ROC AUC:", roc_auc_score(Y_test, Y_prbs_f))
 print("Log loss:", log_loss(Y_test, Y_prbs_f))
 
 
-# This improved the balanced accuracy by roughly 2% to 63.46%, which is marginal,
-# but it is a minor improvement.
+# This improved the balanced accuracy by roughly 4% to ~65%, which is marginal,
+# but it is an improvement.
 
 forest_model = RandomForestClassifier(
     n_estimators=500,
@@ -240,8 +342,7 @@ print("ROC AUC:", roc_auc_score(Y_test, Y_prbs_f))
 print("Log loss:", log_loss(Y_test, Y_prbs_f))
 
 # The random forest classifier is the worst out of all these models. It has the lowest
-# balanced accuracy, precision and recall. With that being said, it has the 
-# highest accuracy out of all of the models. 
+# balanced accuracy, precision and recall. Its balanced accuracy is ~61%.
 
 # Notably, all of these models converge to a balanced accuracy of around 63%. 
 # Through an exploration of different starting parameters, performance did not improve

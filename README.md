@@ -36,7 +36,7 @@ An L1-regularized logistic regression model was used to combine prediction with 
 
 The regularization value was selected to reduce the number of encoded inputs while preserving most of the predictive performance. The selected model used 21 encoded features instead of 36.
 
-Across the reported runs, the reduced model achieved approximately 83.9% balanced accuracy, compared with approximately 84.3% for the larger model. One reported run also produced approximately 81.8% recall, showing that the model identified a large majority of the buyers.
+Across the reported runs, the reduced model achieved approximately 84% balanced accuracy, compared with approximately 84% for the larger model. One reported run also produced approximately 82% recall, showing that the model identified a large majority of the buyers.
 
 The small performance reduction was considered acceptable because the reduced model was simpler and more interpretable.
 
@@ -44,7 +44,7 @@ Accuracy Requirement
 
 The requested success criterion was at least 81% average accuracy under five-fold cross-validation. The models can exceed this raw-accuracy target, but raw accuracy alone is not a reliable measure for this dataset.
 
-For example, an unbalanced logistic regression model without call duration achieved approximately 92.8% accuracy but only 51.6% balanced accuracy. This means that its high accuracy came mainly from correctly predicting the much larger non-buyer group.
+For example, an unbalanced logistic regression model without call duration achieved approximately 93% accuracy but only 52% balanced accuracy. This means that its high accuracy came mainly from correctly predicting the much larger non-buyer group.
 
 For this reason, balanced accuracy is the primary model-selection measure in this project.
 
@@ -56,7 +56,7 @@ The L1 feature-selection path suggested the following broad order of predictive 
 
 This order should be interpreted as a description of how the regularized model retained predictive information, not as proof that the earlier variables cause customers to buy.
 
-When duration was removed, balanced logistic regression achieved approximately 61.1% balanced accuracy. Histogram gradient boosting improved this to approximately 63.5% after threshold adjustment. Random forest, elastic-net logistic regression, and other tested approaches produced similar or weaker results.
+When duration was removed, balanced logistic regression achieved approximately 61% balanced accuracy. Histogram gradient boosting improved this to approximately 65% after threshold adjustment. Random forest, elastic-net logistic regression, and other tested approaches produced similar or weaker results.
 
 Adding pairwise interaction terms greatly increased model complexity, producing approximately 79 selected terms, but did not create a meaningful performance improvement. This suggests that the available pre-call variables contain only moderate predictive information.
 

@@ -29,7 +29,7 @@ print(deposit_db.nunique())
 print(deposit_db.isna().value_counts())
 
 # All binary variables are genuinely binary, with no reporting
-# variation. Binary variables must be transformed into 0-1 integer values.
+# variation. "y" var as 0-1 numeric for logistic regression. 
 # Engineering is easy since they all have yes and no as their string rep.
 
 # There are no missing values in categorical reporting or

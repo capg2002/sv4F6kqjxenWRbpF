@@ -1,17 +1,15 @@
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import PolynomialFeatures, StandardScaler
-from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np
 import warnings
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import (
     StratifiedKFold,
     train_test_split,
     cross_validate,
 )
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.linear_model import LogisticRegression
+
 
 warnings.filterwarnings("ignore")
 
@@ -22,12 +20,14 @@ iterations = 2000
 deposit_db = pd.read_csv('term-deposit-marketing-2020.csv')
 
 # Transforming data for fitting, as explained in initial_logistic_regression.py
-bin_cols = deposit_db.columns[deposit_db.nunique() == 2]
-deposit_db[bin_cols] = deposit_db[bin_cols].replace({'yes': 1, 'no': 0})
+# Transforming binary columns into numeric.
+deposit_db["y"] = deposit_db["y"].replace({'yes': 1, 'no': 0})
 
+# Transforming cat columns into factors.
 factor_cols = deposit_db.select_dtypes(include = ['object', 'category'])
-factor_cols = factor_cols.columns[factor_cols.nunique() > 2]
+factor_cols = factor_cols.columns
 
+print(factor_cols)
 deposit_db = pd.get_dummies(
     deposit_db,
     columns=factor_cols,
@@ -113,6 +113,8 @@ selected_features = interaction_names[
 
 print("Selected features:")
 print(selected_features.tolist())
+
+print(len(selected_features.tolist()))
 
 # This model has a significant number of features, being 79 selected variables,
 # but the balanced accuracy only marginally improved from the model without
