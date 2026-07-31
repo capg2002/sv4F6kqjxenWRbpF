@@ -96,9 +96,11 @@ Final Model Recommendation
 
 The appropriate model depends on when the prediction is required.
 
-For analysis during or after a call, the reduced L1 logistic regression model with duration provides the strongest combination of balanced accuracy and interpretability. It retains 21 encoded features and achieves approximately 83% balanced accuracy.
+For analysis during or after a call, the reduced L1 logistic regression model with duration provides the strongest combination of balanced accuracy and interpretability. It retains 21 encoded features and achieves approximately 83% balanced accuracy. It has a raw accuracy of roughly 87% as an average score across the 5-fold cross-validation.
 
-For selecting customers before calls are made, duration must be excluded. The best tested pre-call model was the histogram gradient boosting classifier with a decision threshold near 0.08, which achieved approximately 63.5% balanced accuracy. The low threshold reflects the rarity of buyers and the objective of improving minority-class detection; it is not evidence that the probabilities themselves are unusually strong.
+For selecting customers before calls are made, duration must be excluded. The best tested pre-call model was the histogram gradient boosting classifier with a decision threshold near 0.08, which achieved approximately 63.5% balanced accuracy. The low threshold reflects the rarity of buyers and the objective of improving minority-class detection; it is not evidence that the probabilities themselves are unusually strong. Following cross-validation, it has roughly a 76% raw accuracy.
+
+If accuracy is to be prioritized, the forest model without duration has a raw accuracy of approximately 87% following 5-fold cross validation.
 
 The pre-call model should therefore be used as a ranking or prioritization aid rather than as a definitive decision system. Its threshold should be selected according to campaign capacity, contact cost, and the relative cost of missing a potential buyer.
 
