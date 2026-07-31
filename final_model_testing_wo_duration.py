@@ -323,8 +323,25 @@ forest_scores = cross_validate(
     ]
 )
 
+print("\nRANDOM FOREST CROSS-VALIDATION SCORES")
+
 for name, values in forest_scores.items():
-    print(name, ":", values.mean())
+    # Skip fit_time and score_time
+    if not name.startswith("test_"):
+        continue
+
+    metric_name = name.removeprefix("test_")
+    mean_score = values.mean()
+    standard_deviation = values.std()
+
+    if metric_name == "neg_log_loss":
+        metric_name = "log_loss"
+        mean_score = -mean_score
+
+    print(
+        f"{metric_name}: "
+        f"{mean_score:.4f} +/- {standard_deviation:.4f}"
+    )
 
 forest_model.fit(X_train_f, Y_train)
 

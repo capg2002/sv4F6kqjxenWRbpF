@@ -78,7 +78,7 @@ chosen_scores = cross_validate(
 )
 
 for name, values in chosen_scores.items():
-    print(name, ":", values.mean())
+    print(name, ":", values.mean(), "+/-", values.std())
 
 chosen_model.fit(X_train_f, Y_train)
 
